@@ -1,0 +1,148 @@
+# Stage 3 two-chunk imagination QAM config for TurnOnSinkFaucet + OpenPI pi0.
+#
+# NOTE: Use the OpenPI distributed trainers for actual Stage 3 training:
+#   revamp.stage3_qam.train_policy
+# The older stage3_qam_train.py / stage3_qam_train_old.py paths are not the
+# recommended OpenPI QAM entry points.
+
+common:
+  num_latent_frames: 3
+  video_height: 256
+  video_width: 256
+  action_chunk_length: 8
+  action_dim: 12
+  state_dim: 17
+
+dataset:
+  tasks:
+    - task_id: "TurnOnSinkFaucet"
+      t5_embedding_path: "datasets/assets/t5_embedding/prompts/robocasa/TurnOnSinkFaucet.pt"
+      # Shared origin package: trimmed turn_rollout_120 data used by both
+      # Stage3 QAM and the merged Stage-1 world-model retrain.
+      data_paths:
+        - "datasets/origin/success"
+        - "datasets/origin/failure"
+  compute_state_stats: true
+  future_offset: 8
+  action_stride: 1
+  max_samples: null
+  use_contact: true
+  left_contact_key: "observation.contact.left"
+  right_contact_key: "observation.contact.right"
+  require_contact: true
+  contact_sidecar_name: "contact_features.npy"
+  terminal_outcomes: ["success", "failure"]
+
+model:
+  wan:
+    config_path: "datasets/assets/wan/Wan2.2-TI2V-5B"
+    checkpoint_path: "datasets/assets/wan/Wan2.2-TI2V-5B"
+    vae_path: "datasets/assets/wan/Wan2.2-TI2V-5B/Wan2.2_VAE.pth"
+    precision: "bfloat16"
+    num_layers: 30
+
+  action_context_hidden: 512
+  action_time_hidden: 512
+  state_context_hidden: 512
+  state_time_hidden: 512
+  q_dit_n_blocks: 8
+  state_proj_dim: 256
+  action_embed_dim: 256
+  q_hidden_dim: 512
+  q_placeholder_timestep: 999
+  q_placeholder_type: "randn"
+
+  pi0:
+    openpi_root: "third_party/openpi"
+    config_name: "pi0_robocasa_turn_success10_weak"
+    checkpoint_path: "checkpoints/openpi_pi0_turn"
+    prompt: "Turn on the sink faucet."
+
+    # OpenPI normalization stats are loaded from checkpoint_path/assets.
+    # Stage3 QAM samples come from dataset.tasks above, not from OpenPI demos.
+    num_flow_steps: 8
+    # OpenPI internally predicts [50, 32], RobocasaOutputs returns first 12
+    # action dims, and Stage 2 Q consumes the first 8 time steps.
+    q_action_horizon: 8
+    q_action_dim: 12
+
+training:
+  # Best validated Stage 2 Q checkpoint for Stage 3 QAM.
+  stage2_q_checkpoint: "checkpoints/stage2_q_initial"
+
+  # Per visible JAX device. Global batch = per_device_batch_size * jax.device_count().
+  per_device_batch_size: 8
+  max_steps: 5000
+  learning_rate: 1.0e-6
+  weight_decay: 0.01
+  grad_clip_norm: 1.0
+  use_amp: true
+  # Conservative first-pass QAM: train only the action/state projection heads.
+  # Full OpenPI fine-tuning (".*") made the QAM residual dominated by
+  # f_theta - f_ref in early runs; widen this only after q_mean rises and
+  # action_raw_std remains stable.
+  trainable_regex: "action_in_proj|action_time_mlp|action_out_proj|state_proj"
+
+  lambda_q: 1
+  # First-pass QAM uses the trained action/Q-head path for dQ/da and detaches
+  # the partial DiT visual path. Set false only after installing flash-attn;
+  # PyTorch SDPA fallback is too slow for full DiT action-gradient training.
+  q_detach_dit: true
+  reference_kl_weight: 0.5
+  # Match the original QAM implementation's discrete sigma schedule:
+  # sigma(t) = sqrt(2 * (1 - t + h) / (t + h)).
+  # Other ablations supported by the trainer: "t", "one_minus_t".
+  qam_sigma_schedule: "qam_sqrt"
+  # OpenPI uses t=1 for noise and t=0 for final action; original QAM uses
+  # the opposite convention for sigma. Keep "identity" only as an ablation.
+  qam_time_transform: "one_minus_t"
+  use_discrete_adjoint: true
+  adjoint_solver_steps: 4
+  qam_path_samples: 1
+  two_chunk_imag_qam: true
+  imag_lambda: 0.25
+  # Throughput-oriented default: A2 imagination is much more expensive than
+  # the normal QAM step, so run it periodically instead of every optimizer step.
+  imag_update_every: 2
+  imag_warmup_steps: 100
+  # 8 is a faster training-time default; use 20 again for slower high-quality
+  # ablations/evaluation if the imagined frames become too noisy.
+  imag_num_inference_steps: 8
+  # Current Stage-1 WM decodes [cond, target1, target2] and drops the first
+  # condition frame, so the two target latents produce 8 future RGB frames.
+  # Anchor A2's real proprio/contact state at t+8 to match that visual horizon.
+  imag_state_offset: 8
+  # OpenPI/pi0 consumes a 4-frame visual history, so A2 uses the latest 4
+  # generated frames, i.e. predicted raw[t+5..t+8].
+  imag_pred_history_strategy: "last"
+  imag_pred_history_frames: 4
+  imag_max_batches: null
+
+  metric_ema_beta: 0.98
+
+system:
+  checkpoint_dir: "outputs/turn_on_sink_faucet/checkpoints/phase3_qam_turn_openpi_two_chunk_imag_online"
+  log_level: "INFO"
+  log_interval: 50
+  save_interval: 500
+  num_workers: 8
+  pin_memory: true
+  drop_last: true
+  persistent_workers: true
+  prefetch_factor: 4
+  # JAX is multithreaded; PyTorch DataLoader's default fork workers can
+  # deadlock after JAX initializes. Use spawn/forkserver when workers > 0.
+  multiprocessing_context: "spawn"
+  # Large camera payloads are sent over localhost; avoiding zip compression
+  # usually saves CPU time and keeps the JAX/OpenPI GPUs waiting less.
+  q_payload_compression: "uncompressed"
+  imag_server_url: "http://127.0.0.1:8766"
+  imag_payload_compression: "uncompressed"
+
+logging:
+  report_to: "wandb"
+  wandb_project: "world-model-rl"
+  wandb_entity: null
+  wandb_mode: null
+  tensorboard_log_dir: "./tensorboard/phase3_qam_turn_openpi"
+  run_name: "phase3-qam-turn-openpi-two-chunk-imag"

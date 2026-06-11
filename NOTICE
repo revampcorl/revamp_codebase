@@ -1,0 +1,103 @@
+REVAMP TurnOnSinkFaucet Code Package
+Third-Party Notice
+
+This repository contains REVAMP source code, configuration files, launch
+helpers, documentation, and trimmed third-party compatibility subsets under
+third_party/.
+
+REVAMP code
+
+- Original REVAMP code, configuration files, launchers, documentation, and
+  REVAMP-authored modifications are released under the Apache License, Version
+  2.0. See LICENSE.
+
+ViVa-derived components
+
+- Some files in this repository are adapted from the ViVa codebase, including
+  revamp/common/viva_dataset.py, revamp/common/wan_model.py, and the Wan source
+  subset packaged at third_party/wan. REVAMP-specific modifications are
+  released under Apache-2.0 to the extent permitted, but the underlying
+  ViVa-derived portions remain subject to the upstream ViVa license or
+  permission terms.
+
+- Before public redistribution, verify the upstream ViVa license for the exact
+  version used by this project. If the upstream ViVa release does not include
+  an explicit permissive license, do not assume that Apache-2.0 grants rights
+  over the ViVa-derived portions.
+
+QAM-derived components
+
+- Stage3 QAM policy optimization code is adapted from the MIT-licensed
+  "Q-learning with Adjoint Matching" project. Relevant REVAMP files include
+  revamp/stage3_qam/train_policy.py, revamp/stage3_qam/train_support.py, and
+  configs/world_model/phase3_qam_turn_openpi_two_chunk_imag.source.yaml.
+  REVAMP-specific modifications integrate QAM with OpenPI, the world-model
+  Q-gradient server, and two-chunk imagination.
+
+- Required MIT notice for the QAM-derived portions:
+
+  The MIT License (MIT)
+
+  Copyright (c) 2026 Authors of "Q-learning with Adjoint Matching"
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+
+Included third-party compatibility subsets
+
+- third_party/openpi contains a trimmed and modified OpenPI/pi0 integration
+  used by Stage3 policy training and policy execution utilities. Several files
+  in this subtree contain Google or Big Vision copyright and Apache-2.0
+  license headers. Their upstream license terms remain in effect. See
+  third_party/openpi/LICENSE.
+
+- third_party/robocasa contains a trimmed RoboCasa task/environment subset and
+  utility code needed for TurnOnSinkFaucet replay and environment execution.
+  The upstream RoboCasa license terms remain in effect. See
+  third_party/robocasa/LICENSE.
+
+- third_party/wan contains the Wan video-model source subset used by ViVa and
+  carried here for REVAMP compatibility. Many files in this subtree include
+  "Copyright 2024-2025 The Alibaba Wan Team Authors. All rights reserved."
+  headers. The upstream Wan source code is distributed under the Apache License,
+  Version 2.0; see third_party/wan/LICENSE.
+
+- third_party/wan/utils/fm_solvers.py and
+  third_party/wan/utils/fm_solvers_unipc.py state that they were copied from
+  Hugging Face Diffusers scheduler implementations. The upstream Diffusers
+  license terms remain in effect.
+
+- third_party/wan/utils/qwen_vl_utils.py states that it was copied from
+  qwen-vl-utils. The upstream qwen-vl-utils license terms remain in effect.
+
+External artifacts
+
+- Datasets, checkpoints, Wan model weights, RoboCasa model assets, and prompt
+  embeddings are intentionally not included in this source package. They must
+  be obtained through the separately distributed artifact bundle or the
+  corresponding upstream projects, subject to their own licenses and terms.
+
+License boundary
+
+- The Apache-2.0 license in the repository root covers original REVAMP code and
+  REVAMP-authored modifications. QAM-derived portions retain the MIT notice
+  above. Included third-party compatibility subsets remain under their own
+  upstream license terms, including the Apache-2.0 Wan source subset documented
+  at third_party/wan/LICENSE. The root license does not grant rights over
+  external OpenPI, RoboCasa, robosuite, Wan model weights, datasets,
+  checkpoints, or simulator assets.

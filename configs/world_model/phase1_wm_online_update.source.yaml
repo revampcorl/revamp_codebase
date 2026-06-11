@@ -1,0 +1,121 @@
+# Stage 1 WM online update for TurnOnSinkFaucet.
+#
+# This release merges the two original online WM updates into one training run:
+#   1. recovery rollouts branched from failure states;
+#   2. new-scene / new-environment rollouts.
+#
+# In this source package these correspond to:
+#   - `datasets/origin/{success,failure}`
+#   - `datasets/online_recovery_rollouts/success`
+#   - `datasets/new_scene_data/{success,failure}`
+#
+# The online recovery and new-scene paths are repeated once to keep the original
+# conservative 2x sampling weight without physically merging LeRobot datasets.
+
+common:
+  num_latent_frames: 3
+  video_height: 256
+  video_width: 256
+  action_chunk_length: 8
+  action_dim: 12
+  state_dim: 17
+
+dataset:
+  tasks:
+    - task_id: "TurnOnSinkFaucet"
+      t5_embedding_path: "datasets/assets/t5_embedding/prompts/robocasa/TurnOnSinkFaucet.pt"
+      data_paths:
+        - "datasets/origin/success"
+        - "datasets/origin/failure"
+        - "datasets/online_recovery_rollouts/success"
+        - "datasets/online_recovery_rollouts/success"
+        - "datasets/new_scene_data/success"
+        - "datasets/new_scene_data/failure"
+        - "datasets/new_scene_data/success"
+        - "datasets/new_scene_data/failure"
+
+  future_offset: 8
+  action_stride: 1
+  max_samples: null
+
+  use_contact: true
+  left_contact_key: "observation.contact.left"
+  right_contact_key: "observation.contact.right"
+  require_contact: true
+  contact_sidecar_name: "contact_features.npy"
+  terminal_outcomes:
+    - success
+    - failure
+    - success
+    - success
+    - success
+    - failure
+    - success
+    - failure
+
+  viva_cache_dir: null
+
+model:
+  wan:
+    config_path: "datasets/assets/wan/Wan2.2-TI2V-5B"
+    checkpoint_path: "datasets/assets/wan/Wan2.2-TI2V-5B"
+    vae_path: "datasets/assets/wan/Wan2.2-TI2V-5B/Wan2.2_VAE.pth"
+    precision: "bfloat16"
+    num_layers: 30
+
+  action_context_hidden: 512
+  action_time_hidden: 512
+  state_context_hidden: 512
+  state_time_hidden: 512
+
+  q_dit_n_blocks: 8
+  state_proj_dim: 256
+  action_embed_dim: 256
+  q_hidden_dim: 512
+  q_placeholder_timestep: 999
+  q_placeholder_type: "randn"
+
+training:
+  stage: 1
+  freeze_dit_in_stage2: true
+
+  batch_size: 4
+  max_steps: 40000
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  warmup_steps: 500
+  gradient_accumulation_steps: 1
+  grad_clip_norm: 1.0
+  use_amp: true
+
+  loss_weight_future_state: 1.0
+  loss_weight_future_cam: 1.0
+  loss_weight_q: 1.0
+
+  gamma: 0.95
+  alpha: 1.0
+  beta_succ: 10.0
+  beta_fail: 5.0
+  beta_int: 1.0
+  tau_polyak: 0.005
+
+system:
+  checkpoint_dir: "outputs/turn_on_sink_faucet/checkpoints/world_model_online_update"
+  log_level: "INFO"
+  log_interval: 20
+  save_interval: 5000
+  num_workers: 8
+  pin_memory: true
+
+logging:
+  report_to: [tensorboard, wandb]
+  tensorboard_log_dir: "./tensorboard/world_model_online_update"
+  run_name: "world-model-online-update"
+  wandb_project: "world-model-rl"
+  wandb_entity: null
+  wandb_mode: "online"
+
+resume:
+  checkpoint_path: "checkpoints/world_model_initial"
+  reset_step: true
+  only_model: true

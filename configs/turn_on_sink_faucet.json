@@ -1,0 +1,76 @@
+{
+  "experiment": "revamp_turn_on_sink_faucet",
+  "outputs": {
+    "dir": "outputs/turn_on_sink_faucet",
+    "materialized_config_dir": "outputs/turn_on_sink_faucet/materialized_configs"
+  },
+  "pipeline": {
+    "task": {
+      "name": "TurnOnSinkFaucet",
+      "prompt": "Turn on the sink faucet.",
+      "state_dim": 17,
+      "action_dim": 12,
+      "history_frames": 4,
+      "future_horizon": 8
+    },
+    "third_party": {
+      "openpi_root": "${REVAMP_OPENPI_ROOT:third_party/openpi}",
+      "openpi_client_src": "${REVAMP_OPENPI_CLIENT_SRC:third_party/openpi/packages/openpi-client/src}",
+      "robocasa_root": "${REVAMP_ROBOCASA_ROOT:third_party/robocasa}",
+      "wan_root": "${REVAMP_WAN_CODE_ROOT:third_party/wan}",
+      "robosuite_root": "${REVAMP_ROBOSUITE_ROOT:}"
+    },
+    "assets": {
+      "wan_checkpoint_dir": "${REVAMP_WAN_CHECKPOINT_DIR:datasets/assets/wan/Wan2.2-TI2V-5B}",
+      "robocasa_assets_root": "${REVAMP_ROBOCASA_ASSETS_ROOT:datasets/assets/robocasa_models/assets}",
+      "t5_embedding": "datasets/assets/t5_embedding/prompts/robocasa/TurnOnSinkFaucet.pt",
+      "stage3_qam_dataset": "datasets/origin",
+      "world_model_base_dataset": "datasets/origin",
+      "online_recovery_dataset": "datasets/online_recovery_rollouts",
+      "new_scene_dataset": "datasets/new_scene_data"
+    },
+    "checkpoints": {
+      "world_model_initial": "checkpoints/world_model_initial",
+      "world_model_after_online_update": "checkpoints/world_model_after_online_update",
+      "stage2_q_initial": "checkpoints/stage2_q_initial",
+      "openpi_policy": "checkpoints/openpi_pi0_turn"
+    },
+    "source_configs": {
+      "phase3_qam": "configs/world_model/phase3_qam_turn_openpi_two_chunk_imag.source.yaml",
+      "wm_online_update": "configs/world_model/phase1_wm_online_update.source.yaml"
+    },
+    "imagination_policy": {
+      "q_server": {
+        "cuda_visible_devices": "7",
+        "port": 8765,
+        "device": "cuda"
+      },
+      "imagination_server": {
+        "cuda_visible_devices": "6",
+        "port": 8766,
+        "device": "cuda",
+        "num_inference_steps": 8
+      },
+      "trainer": {
+        "cuda_visible_devices": "2",
+        "log_interval": 100
+      }
+    },
+    "world_model_update": {
+      "retrain": {
+        "cuda_visible_devices": "0,1,2,3",
+        "num_processes": 4,
+        "main_process_port": 29541,
+        "mixed_precision": "bf16"
+      },
+      "rollout_check": {
+        "cuda_visible_devices": "0",
+        "sample_index": 0,
+        "out_dir": "outputs/turn_on_sink_faucet/rollout_check",
+        "num_inference_steps": 50,
+        "device": "cuda",
+        "fps": 10
+      }
+    }
+  }
+}
